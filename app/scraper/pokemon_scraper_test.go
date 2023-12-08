@@ -58,7 +58,7 @@ func TestScrape(t *testing.T) {
 			Category: "Frigatebird Pokémon",
 			Types:    []string{"Electric", "Flying"},
 			Weakness: []string{"Ice", "Rock"},
-			ImageSrc: "https://sg.portal-pokemon.com/play/resources/pokedex/img/pm/e103c1476c9618c54c19cd0db09e966583c0b967.png",
+			ImageSrc: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/941.png",
 		}
 
 		require.Equal(t, pokemon, expectedPokemon)

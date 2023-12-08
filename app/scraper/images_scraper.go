@@ -28,3 +28,7 @@ func (s *imagesScraper) DownloadImage(url string, filename string) error {
 
 	return nil
 }
+
+func NewImageScraper() *imagesScraper {
+	return &imagesScraper{}
+}

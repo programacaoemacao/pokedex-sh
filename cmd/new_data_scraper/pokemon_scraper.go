@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/programacaoemacao/pokedex-sh/app/model"
 	"github.com/programacaoemacao/pokedex-sh/app/scraper"
@@ -22,54 +23,53 @@ func main() {
 	repoPath := strings.Split(path, "cmd")[0]
 	repoPath = strings.TrimRight(repoPath, "/")
 
-	fileContent, err := os.ReadFile(fmt.Sprintf("%s/pokemon_data_input.json", repoPath))
-	if err != nil {
-		fmt.Println("Erro ao ler o arquivo:", err)
-		return
-	}
-
-	type pokemonInfo struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
-	}
-
-	pokemonsInfo := []pokemonInfo{}
-	err = json.Unmarshal(fileContent, &pokemonsInfo)
-	if err != nil {
-		fmt.Println("Erro ao fazer unmarshal do JSON:", err)
-		return
-	}
+	const (
+		lastPokemonNumber = 1010
+	)
 
 	pokeScraper := scraper.NewPokeScraper()
+	imageScraper := scraper.NewImageScraper()
 
-	for _, info := range pokemonsInfo {
-		pokemonInfo, err := pokeScraper.ScrapePokemonInfo(info.ID, info.Name)
+	imagesCh := make(chan *model.Pokemon)
+	var imagesWG sync.WaitGroup
+
+	go func() {
+		log.Printf("Initializing the images download goroutine")
+		for pokemon := range imagesCh {
+			log.Printf("Downloading image for: %s\n", pokemon.Name)
+			err = imageScraper.DownloadImage(pokemon.ImageSrc, fmt.Sprintf("%s/images/%d.png", repoPath, pokemon.ID))
+			if err != nil {
+				log.Printf("Error at downloading image: %s", err.Error())
+				return
+			}
+			log.Printf("Downloaded image for: %s\n", pokemon.Name)
+			imagesWG.Done()
+		}
+	}()
+
+	for i := 1; i <= lastPokemonNumber; i++ {
+		pokemon, err := pokeScraper.ScrapePokemonInfo(i)
 		if err != nil {
-			log.Printf("Error fetching Pokémon information with ID %d: %v\n", info.ID, err)
+			log.Printf("Error fetching Pokémon information with ID %d: %v\n", i, err)
 			continue
 		}
-		fmt.Printf("Pokemon information with ID %d:\n", info.ID)
-		fmt.Printf("Name: %s\n", pokemonInfo.Name)
-		fmt.Printf("Height: %s\n", pokemonInfo.Height)
-		fmt.Printf("Weight: %s\n", pokemonInfo.Weight)
-		fmt.Printf("Category: %s\n", pokemonInfo.Category)
-		fmt.Printf("Abilities: %v\n", pokemonInfo.Abilities)
-		fmt.Printf("Types: %v\n", pokemonInfo.Types)
-		fmt.Printf("Weaknesses: %v\n", pokemonInfo.Weakness)
-		fmt.Printf("Image Source: %s\n", pokemonInfo.ImageSrc)
+		log.Printf("Pokemon information with ID %d:\n", pokemon.ID)
+		log.Printf("Name: %s\n", pokemon.Name)
+		log.Printf("Height: %s\n", pokemon.Height)
+		log.Printf("Weight: %s\n", pokemon.Weight)
+		log.Printf("Category: %s\n", pokemon.Category)
+		log.Printf("Abilities: %v\n", pokemon.Abilities)
+		log.Printf("Types: %v\n", pokemon.Types)
+		log.Printf("Weaknesses: %v\n", pokemon.Weakness)
+		log.Printf("Image Source: %s\n", pokemon.ImageSrc)
 		fmt.Println("---------------------------------------")
-		pokemonList = append(pokemonList, pokemonInfo)
+		pokemonList = append(pokemonList, pokemon)
+
+		imagesWG.Add(1)
+		imagesCh <- pokemon
 	}
 
-	for _, pokemon := range pokemonList {
-		fmt.Printf("Downloading image for %s\n", pokemon.Name)
-		err = scraper.DownloadImage(pokemon.ImageSrc, fmt.Sprintf("%s/images/%d.png", repoPath, pokemon.ID))
-		if err != nil {
-			fmt.Printf("Error at downloading image: %s", err.Error())
-			return
-		}
-		fmt.Printf("Downloaded image!\n")
-	}
+	imagesWG.Wait()
 
 	jsonData, err := json.MarshalIndent(pokemonList, "", "  ")
 	if err != nil {

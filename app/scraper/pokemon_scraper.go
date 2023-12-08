@@ -86,9 +86,11 @@ func (s *pokeScraper) scrape(url string) (*model.Pokemon, error) {
 	c.OnXML("//div[contains(@class,'pokemon-weakness__btn')]//span", func(x *colly.XMLElement) {
 		pokemon.Weakness = append(pokemon.Weakness, strings.TrimSpace(x.Text))
 	})
-	c.OnXML("//img[@class='pokemon-img__front']", func(x *colly.XMLElement) {
-		pokemon.ImageSrc = "https://sg.portal-pokemon.com" + x.Attr("src")
-	})
+
+	// The image on this website has a white shadow, so it's preferable to get the content from another place
+	// c.OnXML("//img[@class='pokemon-img__front']", func(x *colly.XMLElement) {
+	// 	pokemon.ImageSrc = "https://sg.portal-pokemon.com" + x.Attr("src")
+	// })
 
 	c.OnRequest(func(r *colly.Request) {
 		fmt.Println("Visiting", r.URL.String())
@@ -98,6 +100,8 @@ func (s *pokeScraper) scrape(url string) (*model.Pokemon, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	pokemon.ImageSrc = fmt.Sprintf("https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/%d.png", pokemon.ID)
 
 	return pokemon, nil
 }
