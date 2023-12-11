@@ -64,7 +64,7 @@ func (p pokemonInfo) FilterValue() string { return p.Name }
 var (
 	docStyle       = lipgloss.NewStyle().Margin(2, 2)
 	listModalStyle = lipgloss.NewStyle().
-			MaxWidth(100).
+			MaxWidth(50).
 			Align(lipgloss.Left, lipgloss.Top).
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("69"))
@@ -105,6 +105,7 @@ func newModel() mainModel {
 	}
 
 	m.pokemonsModel = list.New(items, list.NewDefaultDelegate(), 10, 2)
+	m.pokemonsModel.Title = "Pokédex"
 	return m
 }
 
