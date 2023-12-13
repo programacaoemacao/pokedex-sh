@@ -6,8 +6,10 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	imagegenerator "github.com/programacaoemacao/pokedex-sh/app/image_generator"
@@ -66,7 +68,12 @@ var (
 	listModalStyle = lipgloss.NewStyle().
 			MaxWidth(50).
 			Align(lipgloss.Left, lipgloss.Top).
-			BorderStyle(lipgloss.RoundedBorder()).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderRight(true).
+			BorderLeft(false).
+			BorderTop(false).
+			BorderBottom(false).
+			MarginRight(2).
 			BorderForeground(lipgloss.Color("69"))
 	pokemonImageModalStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.HiddenBorder()).
@@ -78,9 +85,9 @@ var (
 )
 
 type mainModel struct {
-	state         sessionState
-	pokemonsModel list.Model
-	pokemons      []model.Pokemon
+	state        sessionState
+	pokedexTable table.Model
+	pokemons     []model.Pokemon
 }
 
 func newModel() mainModel {
@@ -104,8 +111,39 @@ func newModel() mainModel {
 		items = append(items, pokemonInfo{p})
 	}
 
-	m.pokemonsModel = list.New(items, list.NewDefaultDelegate(), 10, 2)
-	m.pokemonsModel.Title = "Pokédex"
+	columns := []table.Column{
+		{Title: "ID", Width: 4},
+		{Title: "Name", Width: 14},
+	}
+
+	rows := []table.Row{}
+	for _, pokemon := range pokemons {
+		row := table.Row{
+			strconv.Itoa(pokemon.ID),
+			pokemon.Name,
+		}
+		rows = append(rows, row)
+	}
+
+	m.pokedexTable = table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithHeight(39),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	m.pokedexTable.SetStyles(s)
+
 	return m
 }
 
@@ -115,46 +153,105 @@ func (m mainModel) Init() tea.Cmd {
 }
 
 func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
+	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		}
-
-	case tea.WindowSizeMsg:
-		h, v := docStyle.GetFrameSize()
-		print(h, v)
-		m.pokemonsModel.SetSize(msg.Width-h, msg.Height-v)
 	}
 
-	m.pokemonsModel, _ = m.pokemonsModel.Update(msg)
+	m.pokedexTable, cmd = m.pokedexTable.Update(msg)
 
-	return m, tea.Batch(cmds...)
+	return m, cmd
+}
+
+func (m mainModel) mountPokemonImage(pokemonID int) string {
+	filepath := fmt.Sprintf("./images/%d.png", pokemonID)
+	asciiArt, _ := imagegenerator.GetImageToPrint(filepath)
+	return asciiArt
+}
+
+func (m mainModel) mountTypes(pokemonID int) string {
+	currentPokemon := m.pokemons[pokemonID-1]
+
+	types := "Types:\t\t"
+	blocks := []string{}
+
+	for _, pokemonType := range currentPokemon.Types {
+		backgroundColor := pokemonTypeColors[pokemonType]
+		block := pokemonTypeModalStyle.
+			Background(lipgloss.Color(backgroundColor)).
+			MarginRight(1).
+			Padding(0, 1).
+			Render(pokemonType)
+		blocks = append(blocks, block)
+	}
+
+	types += strings.Join(blocks, "")
+	return types
+}
+
+func (m mainModel) mountWeakness(pokemonID int) string {
+	currentPokemon := m.pokemons[pokemonID-1]
+
+	weakness := "Weakness:\t"
+	blocks := []string{}
+
+	for _, weakness := range currentPokemon.Weakness {
+		backgroundColor := pokemonTypeColors[weakness]
+		block := pokemonTypeModalStyle.
+			Background(lipgloss.Color(backgroundColor)).
+			MarginRight(1).
+			Padding(0, 1).
+			Render(weakness)
+		blocks = append(blocks, block)
+	}
+
+	weakness += strings.Join(blocks, "")
+	return weakness
+}
+
+func (m mainModel) mountAbility(pokemonID int) string {
+	currentPokemon := m.pokemons[pokemonID-1]
+
+	abilitiesText := "Abilities:\n"
+
+	abilities := []string{}
+	for i := 0; i < len(currentPokemon.Abilities); i++ {
+		ability := currentPokemon.Abilities[i]
+		abilityInfo := currentPokemon.AbilitiesInfo[i]
+		abilityText := fmt.Sprintf("\t%s: %s", ability, abilityInfo)
+		abilities = append(abilities, abilityText)
+	}
+
+	abilitiesText += strings.Join(abilities, "\n")
+	if len(currentPokemon.Abilities) == 1 {
+		abilitiesText += "\n"
+	}
+	return abilitiesText
+}
+
+func (m mainModel) mountHeightWeight(pokemonID int) string {
+	currentPokemon := m.pokemons[pokemonID-1]
+	heightWeight := fmt.Sprintf("Height:%s\tWeight:%s", currentPokemon.Height, currentPokemon.Weight)
+	return heightWeight
 }
 
 func (m mainModel) View() string {
+	stringID := m.pokedexTable.SelectedRow()[0]
+	id, _ := strconv.Atoi(stringID)
+
 	var s string
-	filepath := fmt.Sprintf("./images/%d.png", m.pokemonsModel.Index()+1)
-	asciiArt, _ := imagegenerator.GetImageToPrint(filepath)
+	asciiArt := m.mountPokemonImage(id)
+	types := m.mountTypes(id)
+	weakness := m.mountWeakness(id)
+	ability := m.mountAbility(id)
+	heightWeight := m.mountHeightWeight(id)
 
-	currentPokemon := (m.pokemons[m.pokemonsModel.Index()])
-
-	var types string = ""
-	switch len(currentPokemon.Types) {
-	case 1:
-		types = lipgloss.JoinHorizontal(lipgloss.Center,
-			pokemonTypeModalStyle.Background(lipgloss.Color(pokemonTypeColors[currentPokemon.Types[0]])).Padding(1, 2).Render(currentPokemon.Types[0]),
-		)
-	case 2:
-		types = lipgloss.JoinHorizontal(lipgloss.Center,
-			pokemonTypeModalStyle.Background(lipgloss.Color(pokemonTypeColors[currentPokemon.Types[0]])).MarginRight(1).Padding(1, 2).Render(currentPokemon.Types[0]),
-			pokemonTypeModalStyle.Background(lipgloss.Color(pokemonTypeColors[currentPokemon.Types[1]])).MarginLeft(1).Padding(1, 2).Render(currentPokemon.Types[1]),
-		)
-	}
-	imageAndTypeContainer := lipgloss.JoinVertical(lipgloss.Center, pokemonImageModalStyle.Render(asciiArt), types)
-	s += lipgloss.JoinHorizontal(lipgloss.Left, listModalStyle.Render(fmt.Sprintf("%4s", m.pokemonsModel.View())), imageAndTypeContainer)
+	imageAndTypeContainer := lipgloss.JoinVertical(lipgloss.Left, pokemonImageModalStyle.Render(asciiArt), types, "", weakness, "", ability, "", heightWeight)
+	s += lipgloss.JoinHorizontal(lipgloss.Left, listModalStyle.Render(fmt.Sprintf("%4s", m.pokedexTable.View())), imageAndTypeContainer)
 	s += helpStyle.Render("\nq: exit\n")
 	return s
 }
