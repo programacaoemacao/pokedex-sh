@@ -28,7 +28,7 @@ func main() {
 
 	pokemonImages := [model.LastPokemonID]string{}
 	for i := 1; i <= model.LastPokemonID; i++ {
-		filepath := fmt.Sprintf("./images/%d.png", i)
+		filepath := fmt.Sprintf("%s/images/%d.png", repoPath, i)
 		log.Printf("Converting pokemon image with number %d", i)
 		asciiArt, err := imgGenerator.GenerateAsciiImages(filepath)
 		if err != nil {
