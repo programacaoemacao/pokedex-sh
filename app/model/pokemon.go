@@ -1,5 +1,9 @@
 package model
 
+const (
+	LastPokemonID = 1010
+)
+
 type Pokemon struct {
 	ID            int      `json:"id"`
 	Name          string   `json:"name"`
