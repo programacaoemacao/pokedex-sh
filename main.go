@@ -11,7 +11,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	gui "github.com/programacaoemacao/pokedex-sh/app/gui"
-	imagegenerator "github.com/programacaoemacao/pokedex-sh/app/image_generator"
 	"github.com/programacaoemacao/pokedex-sh/app/model"
 )
 
@@ -60,16 +59,17 @@ var (
 			BorderForeground(lipgloss.Color("69"))
 	pokemonImageModalStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.HiddenBorder()).
-				BorderForeground(lipgloss.Color("69"))
+				BorderForeground(lipgloss.Color("69")).ColorWhitespace(false)
 	pokemonTypeModalStyle = lipgloss.NewStyle().
-				BorderForeground(lipgloss.Color("69"))
-	spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
-	helpStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+				BorderForeground(lipgloss.Color("69")).
+				MarginRight(1).
+				Padding(0, 1)
 )
 
 type mainModel struct {
-	pokedexList list.Model
-	pokemons    []model.Pokemon
+	pokedexList   list.Model
+	pokemons      []model.Pokemon
+	pokemonImages []string
 }
 
 func newModel() mainModel {
@@ -81,12 +81,24 @@ func newModel() mainModel {
 	}
 	defer pokemonJSONFile.Close()
 
+	pokemonImagesFile, err := os.Open("pokemon_images.json")
+	if err != nil {
+		log.Fatalf("error at open the pokemon file")
+	}
+	defer pokemonImagesFile.Close()
+
 	var pokemons []model.Pokemon
 	if err := json.NewDecoder(pokemonJSONFile).Decode(&pokemons); err != nil {
-		log.Fatalf("Error at decodign pokemon json:", err)
+		log.Fatalf("Error at decoding pokemon json:", err)
+	}
+
+	var pokemonImages []string
+	if err := json.NewDecoder(pokemonImagesFile).Decode(&pokemonImages); err != nil {
+		log.Fatalf("Error at decoding pokemon images json:", err)
 	}
 
 	m.pokemons = pokemons
+	m.pokemonImages = pokemonImages
 
 	items := []list.Item{}
 	for _, p := range pokemons {
@@ -107,35 +119,25 @@ func (m mainModel) Init() tea.Cmd {
 
 func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		}
-	}
-
 	m.pokedexList, cmd = m.pokedexList.Update(msg)
 	return m, cmd
 }
 
 func (m mainModel) mountPokemonImage(currentPokemon model.Pokemon) string {
-	filepath := fmt.Sprintf("./images/%d.png", currentPokemon.ID)
-	asciiArt, _ := imagegenerator.GetImageToPrint(filepath)
+	asciiArt := m.pokemonImages[currentPokemon.ID-1]
+	// filepath := fmt.Sprintf("./images/%d.png", currentPokemon.ID)
+	// asciiArt, _ := imagegenerator.GetImageToPrint(filepath)
 	return asciiArt
 }
 
 func (m mainModel) mountTypes(currentPokemon model.Pokemon) string {
-
-	types := "Types:\t\t"
+	types := "Types:   \t"
 	blocks := []string{}
 
 	for _, pokemonType := range currentPokemon.Types {
 		backgroundColor := pokemonTypeColors[pokemonType]
 		block := pokemonTypeModalStyle.
 			Background(lipgloss.Color(backgroundColor)).
-			MarginRight(1).
-			Padding(0, 1).
 			Render(pokemonType)
 		blocks = append(blocks, block)
 	}
@@ -145,7 +147,6 @@ func (m mainModel) mountTypes(currentPokemon model.Pokemon) string {
 }
 
 func (m mainModel) mountWeakness(currentPokemon model.Pokemon) string {
-
 	weakness := "Weakness:\t"
 	blocks := []string{}
 
@@ -153,8 +154,6 @@ func (m mainModel) mountWeakness(currentPokemon model.Pokemon) string {
 		backgroundColor := pokemonTypeColors[weakness]
 		block := pokemonTypeModalStyle.
 			Background(lipgloss.Color(backgroundColor)).
-			MarginRight(1).
-			Padding(0, 1).
 			Render(weakness)
 		blocks = append(blocks, block)
 	}
@@ -189,7 +188,6 @@ func breakSentence(sentence string, charactersPerLine int) []string {
 }
 
 func (m mainModel) mountAbility(currentPokemon model.Pokemon) string {
-
 	abilitiesText := "Abilities:\n"
 
 	abilities := []string{}
@@ -216,18 +214,17 @@ func (m mainModel) mountCategory(currentPokemon model.Pokemon) string {
 
 func (m mainModel) View() string {
 	currentPokemon := m.pokedexList.SelectedItem().(gui.PokemonInfo).Pokemon
-
-	var s string
 	asciiArt := m.mountPokemonImage(currentPokemon)
+	// asciiArt := ""
 	category := m.mountCategory(currentPokemon)
 	types := m.mountTypes(currentPokemon)
 	weakness := m.mountWeakness(currentPokemon)
 	heightWeight := m.mountHeightWeight(currentPokemon)
 	ability := m.mountAbility(currentPokemon)
 
+	var s string
 	imageAndTypeContainer := lipgloss.JoinVertical(lipgloss.Left, pokemonImageModalStyle.Render(asciiArt), category, types, weakness, heightWeight, ability)
 	s += lipgloss.JoinHorizontal(lipgloss.Left, m.pokedexList.View(), imageAndTypeContainer)
-	s += helpStyle.Render("\nq: exit\n")
 	return s
 }
 
