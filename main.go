@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	gui "github.com/programacaoemacao/pokedex-sh/app/gui"
 	imagegenerator "github.com/programacaoemacao/pokedex-sh/app/image_generator"
 	"github.com/programacaoemacao/pokedex-sh/app/model"
 )
@@ -25,18 +24,6 @@ Find them at:
 https://github.com/charmbracelet/bubbletea/tree/master/tutorials/commands
 https://github.com/charmbracelet/bubbletea/tree/master/tutorials/basics
 */
-
-// sessionState is used to track which model is focused
-type sessionState uint
-
-const (
-	listView sessionState = iota
-	spinnerView
-)
-
-type pokemonInfo struct {
-	model.Pokemon
-}
 
 var pokemonTypeColors = map[string]string{
 	"Normal":   "#A8A77A",
@@ -59,14 +46,10 @@ var pokemonTypeColors = map[string]string{
 	"Fairy":    "#D685AD",
 }
 
-func (p pokemonInfo) Title() string       { return strconv.Itoa(int(p.ID)) }
-func (p pokemonInfo) Description() string { return p.Name }
-func (p pokemonInfo) FilterValue() string { return p.Name }
-
 var (
 	docStyle       = lipgloss.NewStyle().Margin(2, 2)
 	listModalStyle = lipgloss.NewStyle().
-			MaxWidth(50).
+			MaxWidth(40).
 			Align(lipgloss.Left, lipgloss.Top).
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderRight(true).
@@ -85,13 +68,12 @@ var (
 )
 
 type mainModel struct {
-	state        sessionState
-	pokedexTable table.Model
-	pokemons     []model.Pokemon
+	pokedexList list.Model
+	pokemons    []model.Pokemon
 }
 
 func newModel() mainModel {
-	m := mainModel{state: listView}
+	m := mainModel{}
 
 	pokemonJSONFile, err := os.Open("pokemon_info.json")
 	if err != nil {
@@ -108,41 +90,12 @@ func newModel() mainModel {
 
 	items := []list.Item{}
 	for _, p := range pokemons {
-		items = append(items, pokemonInfo{p})
+		items = append(items, gui.PokemonInfo{Pokemon: p})
 	}
 
-	columns := []table.Column{
-		{Title: "ID", Width: 4},
-		{Title: "Name", Width: 14},
-	}
-
-	rows := []table.Row{}
-	for _, pokemon := range pokemons {
-		row := table.Row{
-			strconv.Itoa(pokemon.ID),
-			pokemon.Name,
-		}
-		rows = append(rows, row)
-	}
-
-	m.pokedexTable = table.New(
-		table.WithColumns(columns),
-		table.WithRows(rows),
-		table.WithFocused(true),
-		table.WithHeight(39),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	m.pokedexTable.SetStyles(s)
+	m.pokedexList = list.New(items, gui.CustomItemDelegate{}, 18, 44)
+	m.pokedexList.Title = "Pokédex"
+	m.pokedexList.SetShowPagination(false)
 
 	return m
 }
@@ -162,19 +115,17 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.pokedexTable, cmd = m.pokedexTable.Update(msg)
-
+	m.pokedexList, cmd = m.pokedexList.Update(msg)
 	return m, cmd
 }
 
-func (m mainModel) mountPokemonImage(pokemonID int) string {
-	filepath := fmt.Sprintf("./images/%d.png", pokemonID)
+func (m mainModel) mountPokemonImage(currentPokemon model.Pokemon) string {
+	filepath := fmt.Sprintf("./images/%d.png", currentPokemon.ID)
 	asciiArt, _ := imagegenerator.GetImageToPrint(filepath)
 	return asciiArt
 }
 
-func (m mainModel) mountTypes(pokemonID int) string {
-	currentPokemon := m.pokemons[pokemonID-1]
+func (m mainModel) mountTypes(currentPokemon model.Pokemon) string {
 
 	types := "Types:\t\t"
 	blocks := []string{}
@@ -193,8 +144,7 @@ func (m mainModel) mountTypes(pokemonID int) string {
 	return types
 }
 
-func (m mainModel) mountWeakness(pokemonID int) string {
-	currentPokemon := m.pokemons[pokemonID-1]
+func (m mainModel) mountWeakness(currentPokemon model.Pokemon) string {
 
 	weakness := "Weakness:\t"
 	blocks := []string{}
@@ -213,8 +163,32 @@ func (m mainModel) mountWeakness(pokemonID int) string {
 	return weakness
 }
 
-func (m mainModel) mountAbility(pokemonID int) string {
-	currentPokemon := m.pokemons[pokemonID-1]
+func breakSentence(sentence string, charactersPerLine int) []string {
+	words := strings.Fields(sentence)
+	var lines []string
+	var currentLine string
+
+	for _, word := range words {
+		if len(currentLine)+len(word)+1 <= charactersPerLine {
+			if currentLine == "" {
+				currentLine = word
+			} else {
+				currentLine += " " + word
+			}
+		} else {
+			lines = append(lines, currentLine)
+			currentLine = word
+		}
+	}
+
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+
+	return lines
+}
+
+func (m mainModel) mountAbility(currentPokemon model.Pokemon) string {
 
 	abilitiesText := "Abilities:\n"
 
@@ -222,43 +196,43 @@ func (m mainModel) mountAbility(pokemonID int) string {
 	for i := 0; i < len(currentPokemon.Abilities); i++ {
 		ability := currentPokemon.Abilities[i]
 		abilityInfo := currentPokemon.AbilitiesInfo[i]
-		abilityText := fmt.Sprintf("\t%s: %s", ability, abilityInfo)
-		abilities = append(abilities, abilityText)
+		abilityText := fmt.Sprintf("%d. %s: %s", i+1, ability, abilityInfo)
+		abilities = append(abilities, breakSentence(abilityText, 70)...)
 	}
 
 	abilitiesText += strings.Join(abilities, "\n")
-	if len(currentPokemon.Abilities) == 1 {
-		abilitiesText += "\n"
-	}
 	return abilitiesText
 }
 
-func (m mainModel) mountHeightWeight(pokemonID int) string {
-	currentPokemon := m.pokemons[pokemonID-1]
-	heightWeight := fmt.Sprintf("Height:%s\tWeight:%s", currentPokemon.Height, currentPokemon.Weight)
+func (m mainModel) mountHeightWeight(currentPokemon model.Pokemon) string {
+	heightWeight := fmt.Sprintf("Height: %s\tWeight: %s", currentPokemon.Height, currentPokemon.Weight)
 	return heightWeight
 }
 
+func (m mainModel) mountCategory(currentPokemon model.Pokemon) string {
+	category := fmt.Sprintf("Category:\t%s", currentPokemon.Category)
+	return category
+}
+
 func (m mainModel) View() string {
-	stringID := m.pokedexTable.SelectedRow()[0]
-	id, _ := strconv.Atoi(stringID)
+	currentPokemon := m.pokedexList.SelectedItem().(gui.PokemonInfo).Pokemon
 
 	var s string
-	asciiArt := m.mountPokemonImage(id)
-	types := m.mountTypes(id)
-	weakness := m.mountWeakness(id)
-	ability := m.mountAbility(id)
-	heightWeight := m.mountHeightWeight(id)
+	asciiArt := m.mountPokemonImage(currentPokemon)
+	category := m.mountCategory(currentPokemon)
+	types := m.mountTypes(currentPokemon)
+	weakness := m.mountWeakness(currentPokemon)
+	heightWeight := m.mountHeightWeight(currentPokemon)
+	ability := m.mountAbility(currentPokemon)
 
-	imageAndTypeContainer := lipgloss.JoinVertical(lipgloss.Left, pokemonImageModalStyle.Render(asciiArt), types, "", weakness, "", ability, "", heightWeight)
-	s += lipgloss.JoinHorizontal(lipgloss.Left, listModalStyle.Render(fmt.Sprintf("%4s", m.pokedexTable.View())), imageAndTypeContainer)
+	imageAndTypeContainer := lipgloss.JoinVertical(lipgloss.Left, pokemonImageModalStyle.Render(asciiArt), category, types, weakness, heightWeight, ability)
+	s += lipgloss.JoinHorizontal(lipgloss.Left, m.pokedexList.View(), imageAndTypeContainer)
 	s += helpStyle.Render("\nq: exit\n")
 	return s
 }
 
 func main() {
 	p := tea.NewProgram(newModel())
-
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
