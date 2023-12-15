@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	progressbar "github.com/programacaoemacao/pokedex-sh/app/gui/progress_bar"
 	imggen "github.com/programacaoemacao/pokedex-sh/app/image_generator"
 	"github.com/programacaoemacao/pokedex-sh/app/model"
 	pathhelper "github.com/programacaoemacao/pokedex-sh/app/path_helper"
@@ -25,17 +26,24 @@ func main() {
 
 	// You can change the image generator
 	var imgGenerator imggen.ImageGenerator = imggen.NewDefaultGenerator()
-
 	pokemonImages := [model.LastPokemonID]string{}
-	for i := 1; i <= model.LastPokemonID; i++ {
-		filepath := fmt.Sprintf("%s/images/%d.png", repoPath, i)
-		log.Printf("Converting pokemon image with number %d", i)
-		asciiArt, err := imgGenerator.GenerateAsciiImages(filepath)
-		if err != nil {
-			log.Fatalf("can't convert the pokemon number %d image", i)
+
+	pb := progressbar.NewProgressWriter("Converting pokémon images to ascii JSON")
+	pb.Run(func(inputChannel chan progressbar.ProgressMsg) error {
+		for i := 1; i <= model.LastPokemonID; i++ {
+			filepath := fmt.Sprintf("%s/images/%d.png", repoPath, i)
+			asciiArt, err := imgGenerator.GenerateAsciiImages(filepath)
+			if err != nil {
+				log.Fatalf("can't convert the pokemon number %d image", i)
+				return err
+			}
+			pokemonImages[i-1] = asciiArt
+			inputChannel <- progressbar.ProgressMsg(
+				float64(i) / float64(model.LastPokemonID),
+			)
 		}
-		pokemonImages[i-1] = asciiArt
-	}
+		return nil
+	})
 
 	jsonData, err := json.Marshal(pokemonImages)
 	if err != nil {
