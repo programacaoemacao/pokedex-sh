@@ -13,7 +13,9 @@ type progressWriter struct {
 	program    *tea.Program
 }
 
-func (p *progressWriter) Run(task func(inputChannel chan ProgressMsg) error) {
+type ProbressBarTask func(inputChannel chan ProgressMsg) error
+
+func (p *progressWriter) Run(task ProbressBarTask) {
 	inputChannel := make(chan ProgressMsg)
 
 	// Executing the main task
