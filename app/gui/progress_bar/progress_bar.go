@@ -16,24 +16,25 @@ type progressWriter struct {
 func (p *progressWriter) Run(task func(inputChannel chan ProgressMsg) error) {
 	inputChannel := make(chan ProgressMsg)
 
+	// Executing the main task
 	go task(inputChannel)
 
+	// Sending the program an information to update the progress bar
 	go func() {
 		for msg := range inputChannel {
-			// log.Print(msg)
 			p.program.Send(msg)
 		}
 	}()
 
 	if _, err := p.program.Run(); err != nil {
-		fmt.Println("Oh no!", err)
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 }
 
 func NewProgressWriter(taskTitle string) *progressWriter {
 	m := progressModel{
-		progress:  progress.New(progress.WithDefaultGradient()),
+		progress:  progress.New(progress.WithGradient("#009245", "#FCEE21")),
 		taskTitle: taskTitle,
 	}
 
