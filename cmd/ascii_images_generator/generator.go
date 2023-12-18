@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	progressbar "github.com/programacaoemacao/pokedex-sh/app/gui/progress_bar"
@@ -12,46 +11,73 @@ import (
 	pathhelper "github.com/programacaoemacao/pokedex-sh/app/path_helper"
 )
 
+const (
+	pokemonImagesFilename = "pokemon_images.json"
+)
+
 func main() {
-	repoPath, err := pathhelper.GetRepoRootPath()
-	if err != nil {
-		log.Fatalf("can't get repo path: %v", err)
-	}
+	var task progressbar.ProbressBarTask = func(inputChannel chan progressbar.ProgressMsg) error {
+		repoPath, err := pathhelper.GetRepoRootPath()
+		if err != nil {
+			return fmt.Errorf("can't get repo path: %v", err)
+		}
 
-	pokemonImgsJSON, err := os.Create(fmt.Sprintf("%s/pokemon_images.json", repoPath))
-	if err != nil {
-		log.Fatalf("Error creating JSON file: %v", err)
-	}
-	defer pokemonImgsJSON.Close()
+		inputChannel <- progressbar.ProgressMsg{
+			CurrentProgress: float64(0),
+			Message:         fmt.Sprintf("Creating %s file", pokemonImagesFilename),
+			Type:            progressbar.UpdateProgress,
+		}
 
-	// You can change the image generator
-	var imgGenerator imggen.ImageGenerator = imggen.NewDefaultGenerator()
-	pokemonImages := [model.LastPokemonID]string{}
+		pokemonImgsJSON, err := os.Create(fmt.Sprintf("%s/%s", repoPath, pokemonImagesFilename))
+		if err != nil {
+			return fmt.Errorf("Error creating JSON file: %v", err)
+		}
+		defer pokemonImgsJSON.Close()
 
-	pb := progressbar.NewProgressWriter("Converting pokémon images to ascii JSON")
-	pb.Run(func(inputChannel chan progressbar.ProgressMsg) error {
+		// You can change the image generator
+		var imgGenerator imggen.ImageGenerator = imggen.NewDefaultGenerator()
+		pokemonImages := [model.LastPokemonID]string{}
+
 		for i := 1; i <= model.LastPokemonID; i++ {
 			filepath := fmt.Sprintf("%s/images/%d.png", repoPath, i)
 			asciiArt, err := imgGenerator.GenerateAsciiImages(filepath)
 			if err != nil {
-				log.Fatalf("can't convert the pokemon number %d image", i)
-				return err
+				return fmt.Errorf("can't convert the Pokémon number %d image", i)
 			}
+
 			pokemonImages[i-1] = asciiArt
-			inputChannel <- progressbar.ProgressMsg(
-				float64(i) / float64(model.LastPokemonID),
-			)
+			inputChannel <- progressbar.ProgressMsg{
+				CurrentProgress: float64(i) / float64(model.LastPokemonID),
+				Message:         fmt.Sprintf("Converted Pokémon %d to ASCII string", i),
+				Type:            progressbar.UpdateProgress,
+			}
 		}
+
+		inputChannel <- progressbar.ProgressMsg{
+			CurrentProgress: float64(1),
+			Message:         fmt.Sprintf("Saving Pokémon ASCII data to file %q", pokemonImagesFilename),
+			Type:            progressbar.UpdateProgress,
+		}
+
+		jsonData, err := json.Marshal(pokemonImages)
+		if err != nil {
+			return fmt.Errorf("Error marshaling JSON: %v", err)
+		}
+
+		_, err = pokemonImgsJSON.Write(jsonData)
+		if err != nil {
+			return fmt.Errorf("Error writing JSON data to file: %v", err)
+		}
+
+		inputChannel <- progressbar.ProgressMsg{
+			CurrentProgress: float64(1),
+			Message:         "Done",
+			Type:            progressbar.FinishProgram,
+		}
+
 		return nil
-	})
-
-	jsonData, err := json.Marshal(pokemonImages)
-	if err != nil {
-		log.Fatalf("Error marshaling JSON: %v", err)
 	}
 
-	_, err = pokemonImgsJSON.Write(jsonData)
-	if err != nil {
-		log.Fatalf("Error writing JSON data to file: %v", err)
-	}
+	pb := progressbar.NewProgressWriter("Converting Pokémon images to ASCII string")
+	pb.Run(task)
 }

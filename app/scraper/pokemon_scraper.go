@@ -91,10 +91,6 @@ func (s *pokeScraper) scrape(url string) (*model.Pokemon, error) {
 		pokemon.ImageSrc = "https://sg.portal-pokemon.com" + x.Attr("src")
 	})
 
-	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
-	})
-
 	err := c.Request(http.MethodGet, url, nil, colly.NewContext(), s.getRequestHeaders())
 	if err != nil {
 		return nil, err

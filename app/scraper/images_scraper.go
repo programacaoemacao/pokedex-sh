@@ -8,6 +8,7 @@ import (
 
 type imagesScraper struct{}
 
+// Download the image given an URL and the filename (with image path)
 func (s *imagesScraper) DownloadImage(url string, filename string) error {
 	response, err := http.Get(url)
 	if err != nil {
