@@ -1,10 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
+	"path"
 
+	filehelper "github.com/programacaoemacao/pokedex-sh/app/file_helper"
 	progressbar "github.com/programacaoemacao/pokedex-sh/app/gui/progress_bar"
 	imggen "github.com/programacaoemacao/pokedex-sh/app/image_generator"
 	"github.com/programacaoemacao/pokedex-sh/app/model"
@@ -28,13 +28,7 @@ func main() {
 			Type:            progressbar.UpdateProgress,
 		}
 
-		pokemonImgsJSON, err := os.Create(fmt.Sprintf("%s/%s", repoPath, pokemonImagesFilename))
-		if err != nil {
-			return fmt.Errorf("Error creating JSON file: %v", err)
-		}
-		defer pokemonImgsJSON.Close()
-
-		// You can change the image generator
+		// You can change the image generator, check the imggen package
 		var imgGenerator imggen.ImageGenerator = imggen.NewDefaultGenerator()
 		pokemonImages := [model.LastPokemonID]string{}
 
@@ -59,14 +53,10 @@ func main() {
 			Type:            progressbar.UpdateProgress,
 		}
 
-		jsonData, err := json.Marshal(pokemonImages)
+		filePath := path.Join(repoPath, pokemonImagesFilename)
+		err = filehelper.CreateFileWithContent(filePath, pokemonImages)
 		if err != nil {
-			return fmt.Errorf("Error marshaling JSON: %v", err)
-		}
-
-		_, err = pokemonImgsJSON.Write(jsonData)
-		if err != nil {
-			return fmt.Errorf("Error writing JSON data to file: %v", err)
+			return fmt.Errorf("error at saving data to json: %+v", err)
 		}
 
 		inputChannel <- progressbar.ProgressMsg{
@@ -78,6 +68,6 @@ func main() {
 		return nil
 	}
 
-	pb := progressbar.NewProgressWriter("Converting Pokémon images to ASCII string")
+	pb := progressbar.NewProgressWriter("Pokémon images to ASCII converter")
 	pb.Run(task)
 }

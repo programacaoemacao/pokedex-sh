@@ -1,16 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"path"
-	"strings"
 	"sync"
 
+	filehelper "github.com/programacaoemacao/pokedex-sh/app/file_helper"
 	progressbar "github.com/programacaoemacao/pokedex-sh/app/gui/progress_bar"
 	"github.com/programacaoemacao/pokedex-sh/app/model"
+	pathhelper "github.com/programacaoemacao/pokedex-sh/app/path_helper"
 	"github.com/programacaoemacao/pokedex-sh/app/scraper"
 )
 
@@ -22,53 +21,46 @@ func main() {
 	var task progressbar.ProbressBarTask = func(inputChannel chan progressbar.ProgressMsg) error {
 		pokemonList := []*model.Pokemon{}
 
-		currentPath, err := os.Getwd()
+		repoPath, err := pathhelper.GetRepoRootPath()
 		if err != nil {
-			panic(err)
+			return err
 		}
-
-		repoPath := strings.Split(currentPath, "cmd")[0]
-		repoPath = strings.TrimRight(repoPath, "/")
-
-		const (
-			lastPokemonNumber = 1010
-		)
 
 		pokeScraper := scraper.NewPokeScraper()
 		imageScraper := scraper.NewImageScraper()
 
 		imagesCh := make(chan *model.Pokemon)
-		var imagesWG sync.WaitGroup
+		var imageDownloadWG sync.WaitGroup
 
 		go func() {
 			for pokemon := range imagesCh {
 				err = imageScraper.DownloadImage(pokemon.ImageSrc, fmt.Sprintf("%s/images/%d.png", repoPath, pokemon.ID))
-				imagesWG.Done()
+				imageDownloadWG.Done()
 				if err != nil {
 					// TODO: Handle this error
 					log.Fatalf("Error at downloading image: %s", err.Error())
 					continue
 				}
 				inputChannel <- progressbar.ProgressMsg{
-					CurrentProgress: float64(pokemon.ID) / float64(lastPokemonNumber),
-					Message:         fmt.Sprintf("Downloaded data of Pokémon %s: %q", pokemon.GetFormattedID(), pokemon.Name),
+					CurrentProgress: float64(pokemon.ID) / float64(model.LastPokemonID),
+					Message:         fmt.Sprintf("Scraped data from Pokémon number %s: %q", pokemon.GetFormattedID(), pokemon.Name),
 					Type:            progressbar.UpdateProgress,
 				}
 			}
 		}()
 
-		for i := 1; i <= lastPokemonNumber; i++ {
+		for i := 1; i <= model.LastPokemonID; i++ {
 			pokemon, err := pokeScraper.ScrapePokemonInfo(i)
 			if err != nil {
 				return fmt.Errorf("Error fetching Pokémon %s: %v\n", pokemon.GetFormattedID(), err)
 			}
 			pokemonList = append(pokemonList, pokemon)
 
-			imagesWG.Add(1)
+			imageDownloadWG.Add(1)
 			imagesCh <- pokemon
 		}
 
-		imagesWG.Wait()
+		imageDownloadWG.Wait()
 
 		inputChannel <- progressbar.ProgressMsg{
 			CurrentProgress: float64(1),
@@ -76,20 +68,10 @@ func main() {
 			Type:            progressbar.UpdateProgress,
 		}
 
-		jsonData, err := json.Marshal(pokemonList)
+		filePath := path.Join(repoPath, pokemonsInfoFile)
+		err = filehelper.CreateFileWithContent(filePath, pokemonList)
 		if err != nil {
-			return fmt.Errorf("Error marshaling JSON: %v", err)
-		}
-
-		jsonFile, err := os.Create(path.Join(repoPath, pokemonsInfoFile))
-		if err != nil {
-			return fmt.Errorf("Error creating JSON file: %v", err)
-		}
-		defer jsonFile.Close()
-
-		_, err = jsonFile.Write(jsonData)
-		if err != nil {
-			return fmt.Errorf("Error writing JSON data to file: %v", err)
+			return fmt.Errorf("error at saving data to json: %+v", err)
 		}
 
 		inputChannel <- progressbar.ProgressMsg{
@@ -101,6 +83,6 @@ func main() {
 		return nil
 	}
 
-	pb := progressbar.NewProgressWriter("Scraping Pokémon data")
+	pb := progressbar.NewProgressWriter("Pokémon data Scraper")
 	pb.Run(task)
 }
