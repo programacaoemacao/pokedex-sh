@@ -1,7 +1,10 @@
 package model
 
+import "strconv"
+
 const (
-	LastPokemonID = 1010
+	LastPokemonID      = 1010
+	formattingMaxChars = 4
 )
 
 type Pokemon struct {
@@ -15,4 +18,12 @@ type Pokemon struct {
 	Types         []string `json:"types"`
 	Weakness      []string `json:"weakness"`
 	ImageSrc      string   `json:"image_src"`
+}
+
+func (p *Pokemon) GetFormattedID() string {
+	stringID := strconv.Itoa(p.ID)
+	for len(stringID) < formattingMaxChars {
+		stringID = "0" + stringID
+	}
+	return stringID
 }
