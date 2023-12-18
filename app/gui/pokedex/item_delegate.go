@@ -1,4 +1,4 @@
-package gui
+package pokedex
 
 import (
 	"fmt"
@@ -20,33 +20,49 @@ var (
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 )
 
-type PokemonInfo struct {
+type pokemonInfo struct {
 	model.Pokemon
 }
 
-func (p PokemonInfo) Title() string       { return strconv.Itoa(int(p.ID)) }
-func (p PokemonInfo) Description() string { return p.Name }
-func (p PokemonInfo) FilterValue() string { return p.Name }
+func (p pokemonInfo) Title() string {
+	return strconv.Itoa(int(p.ID))
+}
 
-type CustomItemDelegate struct{}
+func (p pokemonInfo) Description() string {
+	return p.Name
+}
+func (p pokemonInfo) FilterValue() string {
+	return p.Name
+}
 
-func (d CustomItemDelegate) Height() int                             { return 1 }
-func (d CustomItemDelegate) Spacing() int                            { return 0 }
-func (d CustomItemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d CustomItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	pokemon, ok := listItem.(PokemonInfo)
+type customItemDelegate struct{}
+
+func (d customItemDelegate) Height() int {
+	return 1
+}
+
+func (d customItemDelegate) Spacing() int {
+	return 0
+}
+
+func (d customItemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
+	return nil
+}
+
+func (d customItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	pokemon, ok := listItem.(pokemonInfo)
 	if !ok {
 		return
 	}
 
 	str := fmt.Sprintf("%d - %s", pokemon.ID, pokemon.Name)
 
-	fn := itemStyle.Render
+	renderFn := itemStyle.Render
 	if index == m.Index() {
-		fn = func(s ...string) string {
+		renderFn = func(s ...string) string {
 			return selectedItemStyle.Render("> " + strings.Join(s, " "))
 		}
 	}
 
-	fmt.Fprint(w, fn(str))
+	fmt.Fprint(w, renderFn(str))
 }
