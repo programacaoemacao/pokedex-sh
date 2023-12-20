@@ -32,7 +32,31 @@ If you don't have [Make](https://www.gnu.org/software/make/) installed, go to `M
 
 ## Development flow
 
-[![](https://mermaid.ink/img/pako:eNp9UstOwzAQ_JWVT0EiByjPHJBoK6FKICrK0ZdtsmlN_ZK94SHEB_Ed_BhOUxcOiJwymRl7djbvonYNiUqUZSktK9ZUwZSeSTtvyDK02r1Iu2Wl7UG9xsDwOJYW0rM4Kh4pMvCaYJIYA-NuudTEhHCrlgHDG7QYqxbLVmPcHOxsxz-2mcEVwfViMpvBDVkKyC78ax4Vd7ghQJi7zddnQ68wv5_Ai-I1RGdo-Gycjdmt0bPzZT9qPuOkGHdKN-mQWAf0FLI2etVQyLLTYrGlt0kbZPxbdlZMnH2mVEy-G6IPiikCu91sO6NHZblchi6us_u8mHcMigG1TvoVpcv2efrQSY623usvigdqse5r-iXK7GUxdXW3XV4f2gf3RDXvi1SasjyvEMryKq0kr2aAo1z2AE9ybwM8zf0M8Cz3MMDzPNgAL3LuAV5KKw6FoWBQNenXe-9pKVJYQ1JU6bXBsJFC2o-kw47d4s3WouLQ0aHofFoDTRWuAhqRRtKRPr4BVZnhHw?type=png)](https://mermaid.live/edit#pako:eNp9UstOwzAQ_JWVT0EiByjPHJBoK6FKICrK0ZdtsmlN_ZK94SHEB_Ed_BhOUxcOiJwymRl7djbvonYNiUqUZSktK9ZUwZSeSTtvyDK02r1Iu2Wl7UG9xsDwOJYW0rM4Kh4pMvCaYJIYA-NuudTEhHCrlgHDG7QYqxbLVmPcHOxsxz-2mcEVwfViMpvBDVkKyC78ax4Vd7ghQJi7zddnQ68wv5_Ai-I1RGdo-Gycjdmt0bPzZT9qPuOkGHdKN-mQWAf0FLI2etVQyLLTYrGlt0kbZPxbdlZMnH2mVEy-G6IPiikCu91sO6NHZblchi6us_u8mHcMigG1TvoVpcv2efrQSY623usvigdqse5r-iXK7GUxdXW3XV4f2gf3RDXvi1SasjyvEMryKq0kr2aAo1z2AE9ybwM8zf0M8Cz3MMDzPNgAL3LuAV5KKw6FoWBQNenXe-9pKVJYQ1JU6bXBsJFC2o-kw47d4s3WouLQ0aHofFoDTRWuAhqRRtKRPr4BVZnhHw)
+```mermaid
+---
+title: Development flow
+---
+
+flowchart TB
+   S1(Test the Charm Bubbletea Library fas:fa-flask)
+   S2(Test the Image ASCII Generator Library fas:fa-flask)
+   S3(Make a Pokédex POC with some Pokémons fas:fa-laptop-code)
+   S4(Build a scraper fas:fa-spider)
+   S5(Scrape the data fas:fa-spider)
+   S6(Convert Pokémon sprites to ASCII fas:fa-paint-brush)
+   S7(Put it all together fas:fa-code-branch)
+   S8(Refactor fas:fa-code)
+   S9(Document the project fas:fa-file-code)
+
+   S1 --> S2
+   S2 --> S3
+   S3 --> S4
+   S4 --> S5
+   S5 --> S6
+   S6 --> S7
+   S7 --> S8
+   S8 --> S9
+```
 
 ## Attention points
 
