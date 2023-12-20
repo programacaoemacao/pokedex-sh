@@ -37,3 +37,7 @@ If you don't have [Make](https://www.gnu.org/software/make/) installed, go to `M
 ## Attention points
 
 **You don't need to run the scraper and collect any data. The repository already contains the necessary data to run the Pokédex!**
+
+If you would like to run the scraper, check this [page](https://github.com/programacaoemacao/pokedex-sh/tree/main/cmd/data_scraper).
+
+If you would like to run the ASCII images generator, check this [page](https://github.com/programacaoemacao/pokedex-sh/tree/main/cmd/ascii_images_generator).
