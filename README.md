@@ -28,7 +28,7 @@ To run the Pokédex in your terminal, run this command:
    make run-pokedex
    ```
 
-If you don't have [Make](https://www.gnu.org/software/make/) installed, go to `Makefile` and copy the the commands corresponding to the desired command and execute them in the project root.
+If you don't have [Make](https://www.gnu.org/software/make/) installed, go to `Makefile` and copy the commands corresponding to the desired command and execute them in the project root.
 
 ## Development flow
 
